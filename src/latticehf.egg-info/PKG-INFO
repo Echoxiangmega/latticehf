@@ -1,0 +1,41 @@
+Metadata-Version: 2.4
+Name: latticehf
+Version: 0.1.0
+Summary: Hartree-Fock solver for lattice models with intersite interactions
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: scipy
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: black; extra == "dev"
+
+# LatticeHF
+
+Hartree-Fock solver for lattice models with intersite Coulomb interactions.
+
+## Installation
+
+```bash
+pip install -e .
+```
+
+## Quick Start
+
+```python
+import numpy as np
+from latticehf import LatticeModel, Hamiltonian, HFSolver
+
+# Define square lattice
+lat_vecs = np.array([[1.0, 0.0], [0.0, 1.0]])
+model = LatticeModel(lat_vecs)
+model.add_orbital([0.0, 0.0])
+model.add_hopping(0, 0, [1, 0], -1.0)
+model.add_v(0, 0, [1, 0], 0.5)
+
+# Solve HF
+H = Hamiltonian(model, ncell=(4, 4))
+solver = HFSolver(H, nelectron=8)
+solver.init_density_guess()
+solver.solve()
+```
