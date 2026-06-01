@@ -102,6 +102,7 @@ def loop_current(density_matrix, hopping_matrix, loop, convention="continuity"):
     A nonzero value diagnoses time-reversal-breaking loop-current order when
     the loop orientation is chosen consistently across the unit cell.
     """
+    loop = list(loop)
     if len(loop) < 3:
         raise ValueError("loop must contain at least three sites")
     bonds = list(zip(loop, loop[1:] + loop[:1]))
@@ -116,7 +117,7 @@ def loop_current_pattern(density_matrix, hopping_matrix, loops, signs=None, conv
     function returns all loop currents without projection.
     """
     currents = np.asarray(
-        [loop_current(density_matrix, hopping_matrix, list(loop), convention=convention) for loop in loops],
+        [loop_current(density_matrix, hopping_matrix, loop, convention=convention) for loop in loops],
         dtype=float,
     )
     if signs is None:
