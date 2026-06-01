@@ -3,10 +3,12 @@ import numpy as np
 from latticehf import (
     Hamiltonian,
     HFSolver,
+    KSpaceHamiltonian,
     LatticeModel,
     bond_current,
     charge_order_amplitude,
     hartree_fock_self_energy,
+    kspace_hartree_fock_self_energy,
     loop_current,
     zero_temperature_density_matrix,
 )
@@ -18,7 +20,7 @@ def _add_hermitian_hopping(model, i, j, delta, amplitude):
     model.add_hopping(j, i, -delta, np.conj(amplitude))
 
 
-def _ruby_lattice_model():
+def _ruby_lattice_model(add_conjugate_hoppings=True):
     lat = np.array([[np.sqrt(3) / 2, 1 / 2], [-np.sqrt(3) / 2, 1 / 2]])
     model = LatticeModel(lat)
 
@@ -48,7 +50,10 @@ def _ruby_lattice_model():
         (2, 5, [0, 0], t1),
         (0, 4, [-1, 0], t1),
     ]:
-        _add_hermitian_hopping(model, i, j, delta, amplitude)
+        if add_conjugate_hoppings:
+            _add_hermitian_hopping(model, i, j, delta, amplitude)
+        else:
+            model.add_hopping(i, j, delta, amplitude)
 
     model.add_v(0, 1, [0, 0], 0.3)
     model.add_v(1, 4, [0, 0], 0.2)
@@ -95,6 +100,32 @@ def test_ruby_lattice_hf_matches_green_function_fixed_point_step():
         hamiltonian.compute_energy(solver.density_matrix),
         hamiltonian.compute_energy(rho_from_green),
     )
+
+
+def test_periodic_ruby_lattice_kspace_hf_matches_green_function_self_energy():
+    model = _ruby_lattice_model(add_conjugate_hoppings=False)
+    k_points = np.array(
+        [
+            [0.0, 0.0],
+            [1 / 3, 1 / 3],
+            [1 / 2, 0.0],
+            [1 / 4, 1 / 4],
+        ]
+    )
+    hamiltonian_k = KSpaceHamiltonian(model, k_points)
+    density_k = np.eye(model.norb, dtype=complex) * 0.5
+
+    for ik in range(len(k_points)):
+        sigma_green = kspace_hartree_fock_self_energy(model, k_points, density_k, ik)
+        sigma_original = np.zeros((model.norb, model.norb), dtype=complex)
+        for v_term in model.v_terms:
+            sigma_original += hamiltonian_k.add_v_fock_k(density_k, v_term, ik)
+
+        fock_original = hamiltonian_k.get_hopping(ik) + sigma_original
+        fock_green = hamiltonian_k.get_hopping(ik) + sigma_green
+
+        assert np.allclose(sigma_original, sigma_green)
+        assert np.allclose(fock_original, fock_green)
 
 
 def test_zero_temperature_density_matrix_trace():
