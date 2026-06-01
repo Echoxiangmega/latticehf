@@ -39,7 +39,6 @@ def test_periodic_hf_finite_temperature_ruby_returns_target_filling():
 def test_scan_phase_diagram_ruby_small_grid():
     def model_factory(v):
         model = _ruby_lattice_model(add_conjugate_hoppings=False)
-        model.v_terms = []
         model.add_v(0, 1, [0, 0], v)
         model.add_v(3, 4, [0, 0], v)
         model.add_v(0, 3, [0, 0], v)
