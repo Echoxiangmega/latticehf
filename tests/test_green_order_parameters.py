@@ -2,6 +2,7 @@ import numpy as np
 
 from latticehf import (
     Hamiltonian,
+    HFSolver,
     LatticeModel,
     bond_current,
     charge_order_amplitude,
@@ -9,6 +10,50 @@ from latticehf import (
     loop_current,
     zero_temperature_density_matrix,
 )
+
+
+def _add_hermitian_hopping(model, i, j, delta, amplitude):
+    delta = np.asarray(delta, dtype=int)
+    model.add_hopping(i, j, delta, amplitude)
+    model.add_hopping(j, i, -delta, np.conj(amplitude))
+
+
+def _ruby_lattice_model():
+    lat = np.array([[np.sqrt(3) / 2, 1 / 2], [-np.sqrt(3) / 2, 1 / 2]])
+    model = LatticeModel(lat)
+
+    orbitals = [
+        [1 / 3 - 1 / 8, 2 / 3 + 1 / 8],
+        [1 / 3 + 2 / 8, 2 / 3 + 1 / 8],
+        [1 / 3 - 1 / 8, 2 / 3 - 2 / 8],
+        [2 / 3 + 1 / 8, 1 / 3 - 1 / 8],
+        [2 / 3 + 1 / 8, 1 / 3 + 2 / 8],
+        [2 / 3 - 2 / 8, 1 / 3 - 1 / 8],
+    ]
+    for position in orbitals:
+        model.add_orbital(position)
+
+    ti, t1 = 0.4, 0.2
+    for i, j, delta, amplitude in [
+        (0, 1, [0, 0], ti),
+        (0, 2, [0, 0], ti),
+        (2, 1, [0, 0], ti),
+        (3, 4, [0, 0], ti),
+        (3, 5, [0, 0], ti),
+        (4, 5, [0, 0], ti),
+        (1, 4, [0, 0], t1),
+        (5, 0, [0, -1], t1),
+        (2, 3, [-1, 0], t1),
+        (3, 1, [0, -1], t1),
+        (2, 5, [0, 0], t1),
+        (0, 4, [-1, 0], t1),
+    ]:
+        _add_hermitian_hopping(model, i, j, delta, amplitude)
+
+    model.add_v(0, 1, [0, 0], 0.3)
+    model.add_v(1, 4, [0, 0], 0.2)
+    model.add_v(0, 4, [-1, 0], 0.15)
+    return model
 
 
 def test_hf_self_energy_matches_hamiltonian_fock_shift():
@@ -24,6 +69,32 @@ def test_hf_self_energy_matches_hamiltonian_fock_shift():
     sigma = hartree_fock_self_energy(hamiltonian.nsite, hamiltonian.v_pairs, rho)
 
     assert np.allclose(fock, hamiltonian.H_hopping + sigma)
+
+
+def test_ruby_lattice_hf_matches_green_function_fixed_point_step():
+    model = _ruby_lattice_model()
+    hamiltonian = Hamiltonian(model, ncell=(2, 2))
+    nelectron = 8
+
+    initial_rho = np.eye(hamiltonian.nsite, dtype=complex) * (nelectron / hamiltonian.nsite)
+    fock_from_original = hamiltonian.compute_fock(initial_rho)
+    sigma_from_green = hartree_fock_self_energy(hamiltonian.nsite, hamiltonian.v_pairs, initial_rho)
+
+    assert np.allclose(fock_from_original, hamiltonian.H_hopping + sigma_from_green)
+
+    rho_from_green, _, _ = zero_temperature_density_matrix(
+        hamiltonian.H_hopping + sigma_from_green,
+        nelectron=nelectron,
+    )
+    solver = HFSolver(hamiltonian, nelectron=nelectron)
+    solver.density_matrix = initial_rho.copy()
+    solver.solve(max_iter=1, verbose=False)
+
+    assert np.allclose(solver.density_matrix, rho_from_green)
+    assert np.isclose(
+        hamiltonian.compute_energy(solver.density_matrix),
+        hamiltonian.compute_energy(rho_from_green),
+    )
 
 
 def test_zero_temperature_density_matrix_trace():
