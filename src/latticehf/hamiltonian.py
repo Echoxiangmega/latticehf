@@ -108,16 +108,20 @@ class KSpaceHamiltonian:
     k空间哈密顿量，用于周期体系的k点计算。
     """
 
-    def __init__(self, model: LatticeModel, k_points: np.ndarray):
+    def __init__(self, model: LatticeModel, k_points: np.ndarray, gauge: str = "embedding"):
         """
         Args:
             model: LatticeModel实例
             k_points: k点路径，shape (nk, ndim)
         """
+        if gauge not in {"embedding", "cell"}:
+            raise ValueError("gauge must be 'embedding' or 'cell'")
+
         self.model = model
         self.k_points = k_points
         self.nk = len(k_points)
         self.norb = model.norb
+        self.gauge = gauge
 
         self.H_k_cache = {}
         self._cache_hopping()
@@ -136,10 +140,13 @@ class KSpaceHamiltonian:
                 delta = term["delta"]
                 t = term["t"]
 
-                r_i = self.model.orbital_positions[iorb]
-                r_j = self.model.orbital_positions[jorb]
                 delta_R = delta @ lat_vecs
-                dr = r_j - r_i + delta_R
+                if self.gauge == "embedding":
+                    r_i = self.model.orbital_positions[iorb] @ lat_vecs
+                    r_j = self.model.orbital_positions[jorb] @ lat_vecs
+                    dr = r_j - r_i + delta_R
+                else:
+                    dr = delta_R
                 phase = np.exp(1j * np.dot(k_cart, dr))
                 t_k = t * phase
 

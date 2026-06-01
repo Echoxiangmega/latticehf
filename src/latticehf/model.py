@@ -109,7 +109,7 @@ class LatticeModel:
         for ix in range(nx):
             for iy in range(ny):
                 for iorb in range(self.norb):
-                    r = np.array([ix, iy]) @ self.lat_vecs + self.orbital_positions[iorb]
+                    r = (np.array([ix, iy]) + self.orbital_positions[iorb]) @ self.lat_vecs
                     positions.append(r)
                     indices[(iorb, ix, iy)] = len(positions) - 1
 
@@ -198,8 +198,8 @@ class LatticeModel:
                 delta = term["delta"]
                 t = term["t"]
 
-                r_i = self.orbital_positions[iorb]
-                r_j = self.orbital_positions[jorb]
+                r_i = self.orbital_positions[iorb] @ lat_vecs
+                r_j = self.orbital_positions[jorb] @ lat_vecs
                 delta_R = delta @ lat_vecs
                 dr = r_j - r_i + delta_R
 
