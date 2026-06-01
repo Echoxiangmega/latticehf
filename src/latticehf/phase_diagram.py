@@ -122,7 +122,7 @@ def solve_periodic_hf_finite_temperature(
         raise ValueError("mixing must lie in (0, 1]")
 
     k_points = np.asarray(k_points, dtype=float)
-    hamiltonian_k = KSpaceHamiltonian(model, k_points)
+    hamiltonian_k = KSpaceHamiltonian(model, k_points, gauge="cell")
     nk = len(k_points)
     norb = model.norb
     target = _target_particles(filling, norb, filling_unit)
@@ -214,17 +214,17 @@ def _find_hopping(model, i, j, delta):
     raise ValueError(f"No hopping found for oriented bond ({i}, {j}, delta={delta.tolist()})")
 
 
-def _bond_phase(model, k_frac, i, j, delta):
+def _bond_phase(model, k_frac, delta):
     rec_vecs = 2 * np.pi * np.linalg.inv(model.lat_vecs.T)
     k_cart = np.asarray(k_frac) @ rec_vecs
-    dr = model.orbital_positions[j] - model.orbital_positions[i] + np.asarray(delta) @ model.lat_vecs
-    return np.exp(1j * np.dot(k_cart, dr))
+    delta_R = np.asarray(delta) @ model.lat_vecs
+    return np.exp(1j * np.dot(k_cart, delta_R))
 
 
 def _periodic_bond_expectation(model, k_points, density_k, i, j, delta):
     value = 0.0j
     for ik, k_frac in enumerate(k_points):
-        value += _bond_phase(model, k_frac, i, j, delta) * density_k[ik, j, i]
+        value += _bond_phase(model, k_frac, delta) * density_k[ik, j, i]
     return value / len(k_points)
 
 
