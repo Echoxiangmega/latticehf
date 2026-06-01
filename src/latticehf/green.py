@@ -115,6 +115,39 @@ def hartree_fock_self_energy(nsite, v_pairs, density_matrix):
     return sigma
 
 
+def kspace_hartree_fock_self_energy(model, k_points, density_matrix, ik):
+    """Build the current k-space HF self-energy for one k point.
+
+    This mirrors ``KSpaceHamiltonian.add_v_fock_k`` but exposes the result as
+    ``Sigma_HF(k)`` so the periodic solver can be compared directly with the
+    Green-function Dyson form ``G(k, iw)^{-1} = iw + mu - H0(k) - Sigma(k)``.
+
+    The present k-space solver uses one unit-cell density matrix averaged over
+    the sampled k points.  A future full translationally invariant Fock term can
+    generalize this interface to a momentum convolution.
+    """
+    rho = np.asarray(density_matrix, dtype=complex)
+    sigma = np.zeros((model.norb, model.norb), dtype=complex)
+    rec_vecs = 2 * np.pi * np.linalg.inv(model.lat_vecs.T)
+    k_cart = np.asarray(k_points[ik]) @ rec_vecs
+
+    for term in model.v_terms:
+        iorb = term["i"]
+        jorb = term["j"]
+        v = term["v"]
+        delta = term["delta"]
+        delta_R = delta @ model.lat_vecs
+        phase = np.exp(1j * np.dot(k_cart, delta_R))
+        v_eff = v * phase
+
+        sigma[iorb, iorb] += v_eff * rho[jorb, jorb].real
+        sigma[jorb, jorb] += v_eff * rho[iorb, iorb].real
+        sigma[iorb, jorb] -= v_eff * rho[jorb, iorb]
+        sigma[jorb, iorb] -= v_eff.conj() * rho[iorb, jorb]
+
+    return sigma
+
+
 def green_density_residual(h0, v_pairs, density_matrix, nelectron):
     """Return the HF fixed-point residual written as rho - f(h0+Sigma_HF)."""
     rho = np.asarray(density_matrix, dtype=complex)
