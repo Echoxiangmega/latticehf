@@ -20,7 +20,7 @@ def _add_hermitian_hopping(model, i, j, delta, amplitude):
     model.add_hopping(j, i, -delta, np.conj(amplitude))
 
 
-def _ruby_lattice_model(add_conjugate_hoppings=True):
+def _ruby_lattice_model(add_conjugate_hoppings=True, v_terms=None):
     lat = np.array([[np.sqrt(3) / 2, 1 / 2], [-np.sqrt(3) / 2, 1 / 2]])
     model = LatticeModel(lat)
 
@@ -55,9 +55,8 @@ def _ruby_lattice_model(add_conjugate_hoppings=True):
         else:
             model.add_hopping(i, j, delta, amplitude)
 
-    model.add_v(0, 1, [0, 0], 0.3)
-    model.add_v(1, 4, [0, 0], 0.2)
-    model.add_v(0, 4, [-1, 0], 0.15)
+    for i, j, delta, v in v_terms or []:
+        model.add_v(i, j, delta, v)
     return model
 
 
@@ -77,7 +76,13 @@ def test_hf_self_energy_matches_hamiltonian_fock_shift():
 
 
 def test_ruby_lattice_hf_matches_green_function_fixed_point_step():
-    model = _ruby_lattice_model()
+    model = _ruby_lattice_model(
+        v_terms=[
+            (0, 1, [0, 0], 0.3),
+            (1, 4, [0, 0], 0.2),
+            (0, 4, [-1, 0], 0.15),
+        ]
+    )
     hamiltonian = Hamiltonian(model, ncell=(2, 2))
     nelectron = 8
 
@@ -103,7 +108,14 @@ def test_ruby_lattice_hf_matches_green_function_fixed_point_step():
 
 
 def test_periodic_ruby_lattice_kspace_hf_matches_green_function_self_energy():
-    model = _ruby_lattice_model(add_conjugate_hoppings=False)
+    model = _ruby_lattice_model(
+        add_conjugate_hoppings=False,
+        v_terms=[
+            (0, 1, [0, 0], 0.3),
+            (1, 4, [0, 0], 0.2),
+            (0, 4, [-1, 0], 0.15),
+        ],
+    )
     k_points = np.array(
         [
             [0.0, 0.0],
