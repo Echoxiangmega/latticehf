@@ -10,6 +10,7 @@ from .green import (
     finite_temperature_density_matrix,
     green_density_residual,
     hartree_fock_self_energy,
+    kspace_hartree_fock_self_energy,
     matsubara_green,
     zero_temperature_density_matrix,
 )
@@ -39,6 +40,7 @@ __all__ = [
     "finite_temperature_density_matrix",
     "green_density_residual",
     "hartree_fock_self_energy",
+    "kspace_hartree_fock_self_energy",
     "matsubara_green",
     "zero_temperature_density_matrix",
     "bond_current",
